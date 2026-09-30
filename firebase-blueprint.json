@@ -1,0 +1,209 @@
+{
+  "entities": {
+    "BusinessProfile": {
+      "title": "BusinessProfile",
+      "description": "Enterprise profile information and defense settings.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "website": { "type": "string" },
+        "industry": { "type": "string" },
+        "frameworkFocus": { "type": "string" },
+        "nodeCount": { "type": "number" },
+        "cloudProvider": { "type": "string" },
+        "recordCount": { "type": "string" },
+        "pocName": { "type": "string" },
+        "pocEmail": { "type": "string" },
+        "onboardedAt": { "type": "string" }
+      },
+      "required": ["name"]
+    },
+    "SmtpConfig": {
+      "title": "SmtpConfig",
+      "description": "Corporate SMTP configuration for phishing simulation delivery.",
+      "type": "object",
+      "properties": {
+        "host": { "type": "string" },
+        "port": { "type": "number" },
+        "username": { "type": "string" },
+        "useSsl": { "type": "boolean" }
+      }
+    },
+    "PhishingCampaign": {
+      "title": "PhishingCampaign",
+      "description": "Simulation campaign to test user readiness.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "template": { "type": "string" },
+        "targetUsers": { "type": "number" },
+        "sentCount": { "type": "number" },
+        "clickCount": { "type": "number" },
+        "reportCount": { "type": "number" },
+        "status": { "type": "string" },
+        "date": { "type": "string" }
+      }
+    },
+    "CampaignRecipient": {
+      "title": "CampaignRecipient",
+      "description": "Individual recipient behavior tracking for campaigns.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "campaignId": { "type": "string" },
+        "contact": { "type": "string" },
+        "status": { "type": "string" },
+        "lastUpdated": { "type": "string" }
+      }
+    },
+    "User": {
+      "title": "User",
+      "description": "User in the corporate directory.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string" },
+        "department": { "type": "string" },
+        "lastUpdated": { "type": "string" }
+      }
+    },
+    "EmployeeSuggestion": {
+      "title": "EmployeeSuggestion",
+      "description": "Security suggestions submitted by employees under compliance programs.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "department": { "type": "string" },
+        "suggestion": { "type": "string" },
+        "category": { "type": "string" },
+        "submittedAt": { "type": "string" },
+        "status": { "type": "string" }
+      }
+    },
+    "CapaItem": {
+      "title": "CapaItem",
+      "description": "Corrective and Preventive Actions (CAPA) tracking items.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "standardRef": { "type": "string" },
+        "severity": { "type": "string" },
+        "status": { "type": "string" },
+        "owner": { "type": "string" },
+        "description": { "type": "string" },
+        "rootCause": { "type": "string" },
+        "actionPlan": { "type": "string" },
+        "targetDate": { "type": "string" },
+        "createdAt": { "type": "string" }
+      }
+    },
+    "TrainingCourse": {
+      "title": "TrainingCourse",
+      "description": "Information security courses published on the hub.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "category": { "type": "string" },
+        "estimatedMinutes": { "type": "number" },
+        "content": { "type": "string" },
+        "uploadedBy": { "type": "string" }
+      }
+    },
+    "TrainingAssignment": {
+      "title": "TrainingAssignment",
+      "description": "Course training assignments tracked for compliance audits.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "courseId": { "type": "string" },
+        "courseTitle": { "type": "string" },
+        "assignedToUser": { "type": "string" },
+        "assignedToRole": { "type": "string" },
+        "status": { "type": "string" },
+        "completedAt": { "type": "string" },
+        "quizScore": { "type": "string" }
+      }
+    },
+    "ImprovementItem": {
+      "title": "ImprovementItem",
+      "description": "Continual security posture improvement logs.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "source": { "type": "string" },
+        "title": { "type": "string" },
+        "rootCause": { "type": "string" },
+        "remediationAction": { "type": "string" },
+        "assignedTo": { "type": "string" },
+        "expectedCloseDate": { "type": "string" },
+        "status": { "type": "string" },
+        "severity": { "type": "string" },
+        "linkedId": { "type": "string" },
+        "loggedAt": { "type": "string" }
+      }
+    },
+    "ComplianceReadiness": {
+      "title": "ComplianceReadiness",
+      "description": "Document checklist and evidence mapping progress.",
+      "type": "object",
+      "properties": {
+        "readyDocs": { "type": "array", "items": { "type": "string" } },
+        "readyEvidence": { "type": "array", "items": { "type": "string" } },
+        "auditNotes": { "type": "object" }
+      }
+    }
+  },
+  "firestore": {
+    "business": {
+      "schema": "BusinessProfile",
+      "description": "Global business configuration data."
+    },
+    "settings": {
+      "schema": "SmtpConfig",
+      "description": "Global SMTP and feature settings."
+    },
+    "phishing_campaigns": {
+      "schema": "PhishingCampaign",
+      "description": "List of phishing simulation campaigns."
+    },
+    "campaign_recipients": {
+      "schema": "CampaignRecipient",
+      "description": "Details of targets inside active simulations."
+    },
+    "infoshield_directory": {
+      "schema": "User",
+      "description": "Corporate active LDAP directory simulation."
+    },
+    "iso27001_employee_suggestions": {
+      "schema": "EmployeeSuggestion",
+      "description": "Security suggestions submitted by employees."
+    },
+    "compliance": {
+      "schema": "ComplianceReadiness",
+      "description": "Compliance audit readiness documents and notes."
+    },
+    "iso27001_capa_items": {
+      "schema": "CapaItem",
+      "description": "ISO 27001 corrective action items."
+    },
+    "infoshield_courses": {
+      "schema": "TrainingCourse",
+      "description": "Information security courses published on the hub."
+    },
+    "infoshield_assignments": {
+      "schema": "TrainingAssignment",
+      "description": "Compliance training assignments."
+    },
+    "continual_improvements": {
+      "schema": "ImprovementItem",
+      "description": "Continual security improvement logs."
+    }
+  }
+}

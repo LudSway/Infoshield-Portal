@@ -1,0 +1,6 @@
+{
+  "name": "Infoshield Security Portal",
+  "description": "Centralized InfoSec portal for security access management, real-time compliance monitoring, automated incident response tracking, tabletop exercises, phishing simulation, AI-driven threat detection, and interactive ISO 27001:2022 & PCI DSS v4.0 mock audits.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

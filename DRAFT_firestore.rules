@@ -1,0 +1,206 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net (default deny)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email.toLowerCase() == "godwayr.akakpo@gmail.com" ||
+        request.auth.token.email.toLowerCase() == "godswayr.akakpo@gmail.com"
+      );
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Validation schemas for Entities
+
+    function isValidBusinessProfile(data) {
+      return data.keys().hasAll(['name']) 
+        && data.name is string && data.name.size() <= 128
+        && (!data.keys().contains('website') || (data.website is string && data.website.size() <= 256))
+        && (!data.keys().contains('industry') || (data.industry is string && data.industry.size() <= 128))
+        && (!data.keys().contains('frameworkFocus') || (data.frameworkFocus is string && data.frameworkFocus.size() <= 128))
+        && (!data.keys().contains('pocName') || (data.pocName is string && data.pocName.size() <= 128))
+        && (!data.keys().contains('pocEmail') || (data.pocEmail is string && data.pocEmail.size() <= 128));
+    }
+
+    function isValidSmtpConfig(data) {
+      return (!data.keys().contains('host') || (data.host is string && data.host.size() <= 256))
+        && (!data.keys().contains('port') || (data.port is int || data.port is number))
+        && (!data.keys().contains('username') || (data.username is string && data.username.size() <= 128))
+        && (!data.keys().contains('useSsl') || (data.useSsl is bool));
+    }
+
+    function isValidPhishingCampaign(data) {
+      return data.keys().hasAll(['name', 'template'])
+        && data.name is string && data.name.size() <= 256
+        && data.template is string && data.template.size() <= 128
+        && (!data.keys().contains('status') || (data.status is string && data.status.size() <= 64))
+        && (!data.keys().contains('sentCount') || (data.sentCount is int || data.sentCount is number))
+        && (!data.keys().contains('clickCount') || (data.clickCount is int || data.clickCount is number))
+        && (!data.keys().contains('reportCount') || (data.reportCount is int || data.reportCount is number));
+    }
+
+    function isValidCampaignRecipient(data) {
+      return data.keys().hasAll(['campaignId', 'contact', 'status'])
+        && data.campaignId is string && data.campaignId.size() <= 128
+        && data.contact is string && data.contact.size() <= 256
+        && data.status is string && data.status.size() <= 64;
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['name', 'email', 'role'])
+        && data.name is string && data.name.size() <= 128
+        && data.email is string && data.email.size() <= 256
+        && data.role is string && data.role.size() <= 128
+        && (!data.keys().contains('department') || (data.department is string && data.department.size() <= 128));
+    }
+
+    function isValidEmployeeSuggestion(data) {
+      return data.keys().hasAll(['suggestion', 'category'])
+        && data.suggestion is string && data.suggestion.size() <= 2048
+        && data.category is string && data.category.size() <= 128
+        && (!data.keys().contains('name') || (data.name is string && data.name.size() <= 128))
+        && (!data.keys().contains('department') || (data.department is string && data.department.size() <= 128))
+        && (!data.keys().contains('status') || (data.status is string && data.status.size() <= 64));
+    }
+
+    function isValidCapaItem(data) {
+      return data.keys().hasAll(['title', 'severity', 'status'])
+        && data.title is string && data.title.size() <= 256
+        && data.severity is string && data.severity.size() <= 64
+        && data.status is string && data.status.size() <= 64
+        && (!data.keys().contains('description') || (data.description is string && data.description.size() <= 2048))
+        && (!data.keys().contains('actionPlan') || (data.actionPlan is string && data.actionPlan.size() <= 2048));
+    }
+
+    function isValidTrainingCourse(data) {
+      return data.keys().hasAll(['title', 'description', 'category'])
+        && data.title is string && data.title.size() <= 256
+        && data.description is string && data.description.size() <= 1024
+        && data.category is string && data.category.size() <= 128;
+    }
+
+    function isValidTrainingAssignment(data) {
+      return data.keys().hasAll(['courseId', 'courseTitle', 'status'])
+        && data.courseId is string && data.courseId.size() <= 128
+        && data.courseTitle is string && data.courseTitle.size() <= 256
+        && data.status is string && data.status.size() <= 64;
+    }
+
+    function isValidImprovementItem(data) {
+      return data.keys().hasAll(['title', 'severity', 'status'])
+        && data.title is string && data.title.size() <= 256
+        && data.severity is string && data.severity.size() <= 64
+        && data.status is string && data.status.size() <= 64
+        && (!data.keys().contains('remediationAction') || (data.remediationAction is string && data.remediationAction.size() <= 2048));
+    }
+
+
+    // Collection Rules
+
+    // 1. Business
+    match /business/{docId} {
+      allow read: if isSignedIn();
+      allow create, update: if isAdmin() && isValidBusinessProfile(incoming()) && isValidId(docId);
+      allow delete: if isAdmin() && isValidId(docId);
+    }
+
+    // 2. Settings
+    match /settings/{docId} {
+      allow read: if isAdmin();
+      allow create, update: if isAdmin() && isValidSmtpConfig(incoming()) && isValidId(docId);
+      allow delete: if isAdmin() && isValidId(docId);
+    }
+
+    // 3. Phishing Campaigns
+    match /phishing_campaigns/{docId} {
+      allow read: if isSignedIn();
+      allow create, update: if isAdmin() && isValidPhishingCampaign(incoming()) && isValidId(docId);
+      allow delete: if isAdmin() && isValidId(docId);
+    }
+
+    // 4. Campaign Recipients
+    match /campaign_recipients/{docId} {
+      allow read: if isSignedIn();
+      allow create, update: if isAdmin() && isValidCampaignRecipient(incoming()) && isValidId(docId);
+      allow delete: if isAdmin() && isValidId(docId);
+    }
+
+    // 5. Infoshield Directory
+    match /infoshield_directory/{docId} {
+      allow read: if isSignedIn();
+      allow create, update: if (isAdmin() || (isSignedIn() && request.auth.uid == docId)) 
+                            && isValidUser(incoming()) && isValidId(docId);
+      allow delete: if isAdmin() && isValidId(docId);
+    }
+
+    // 6. ISO 27001 Employee Suggestions
+    match /iso27001_employee_suggestions/{docId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidEmployeeSuggestion(incoming()) && isValidId(docId);
+      allow update: if (isAdmin() || (isSignedIn() && existing().userId == request.auth.uid)) 
+                    && isValidEmployeeSuggestion(incoming()) && isValidId(docId);
+      allow delete: if isAdmin() && isValidId(docId);
+    }
+
+    // 7. Compliance
+    match /compliance/{docId} {
+      allow read: if isSignedIn();
+      allow create, update: if isAdmin() && isValidId(docId);
+      allow delete: if isAdmin() && isValidId(docId);
+    }
+
+    // 8. ISO 27001 CAPA Items
+    match /iso27001_capa_items/{docId} {
+      allow read: if isSignedIn();
+      allow create, update: if isAdmin() && isValidCapaItem(incoming()) && isValidId(docId);
+      allow delete: if isAdmin() && isValidId(docId);
+    }
+
+    // 9. Infoshield Courses
+    match /infoshield_courses/{docId} {
+      allow read: if isSignedIn();
+      allow create, update: if isAdmin() && isValidTrainingCourse(incoming()) && isValidId(docId);
+      allow delete: if isAdmin() && isValidId(docId);
+    }
+
+    // 10. Infoshield Assignments
+    match /infoshield_assignments/{docId} {
+      allow read: if isSignedIn();
+      allow create, update: if (isAdmin() || (isSignedIn() && incoming().assignedToUser == request.auth.uid)) 
+                            && isValidTrainingAssignment(incoming()) && isValidId(docId);
+      allow delete: if isAdmin() && isValidId(docId);
+    }
+
+    // 11. Continual Improvements
+    match /continual_improvements/{docId} {
+      allow read: if isSignedIn();
+      allow create, update: if isAdmin() && isValidImprovementItem(incoming()) && isValidId(docId);
+      allow delete: if isAdmin() && isValidId(docId);
+    }
+  }
+}
