@@ -8,21 +8,13 @@ import {
   addDoc, 
   deleteDoc, 
   getDocs, 
+  getDocFromServer,
   query, 
   orderBy,
   Firestore
 } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
-
-// Firebase Applet Configuration (pre-configured by platform setup)
-const firebaseConfig = {
-  apiKey: "AIzaSyCSDU_aDAh2mvOLdRnsAPfdSi1jvTXfdog",
-  authDomain: "gen-lang-client-0230790809.firebaseapp.com",
-  projectId: "gen-lang-client-0230790809",
-  storageBucket: "gen-lang-client-0230790809.firebasestorage.app",
-  messagingSenderId: "963614236117",
-  appId: "1:963614236117:web:5ba70a0782e082a1c5315c"
-};
+import firebaseConfig from "../../firebase-applet-config.json";
 
 let app: FirebaseApp;
 let db: Firestore;
@@ -34,10 +26,22 @@ try {
     app = getApp();
   }
   // Initialize firestore with the custom databaseId provided in applet config
-  db = getFirestore(app, "ai-studio-infoshieldsecpor-04b5a160-0f34-400d-8b43-722508495b1b");
+  db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 } catch (error) {
   console.error("Firebase initialization failed. Falling back to local/in-memory storage.", error);
 }
+
+async function testConnection() {
+  if (!db) return;
+  try {
+    await getDocFromServer(doc(db, "test", "connection"));
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("the client is offline")) {
+      console.error("Please check your Firebase configuration.");
+    }
+  }
+}
+testConnection();
 
 export { app, db };
 

@@ -334,7 +334,11 @@ export default function App() {
   useEffect(() => {
     if (activeTab === "admin_portal") {
       const emailClean = currentUser?.email?.trim().toLowerCase();
-      if (emailClean !== "godwayr.akakpo@gmail.com" && emailClean !== "godswayr.akakpo@gmail.com") {
+      if (
+        emailClean !== "godwayr.akakpo@gmail.com" &&
+        emailClean !== "godswayr.akakpo@gmail.com" &&
+        emailClean !== "xtroluv@gmail.com"
+      ) {
         setActiveTab("dashboard");
       }
     }
@@ -3283,35 +3287,47 @@ export default function App() {
                           </div>
 
                           <div className="space-y-3.5">
-                            {vaptScanResult.findings.map((item: any, i: number) => (
-                              <div key={i} className={`p-4 rounded-lg border leading-relaxed ${
-                                item.present 
-                                  ? isLight ? "bg-emerald-500/5 border-emerald-500/20" : "bg-emerald-500/5 border-emerald-500/10" 
-                                  : item.severity === "HIGH"
-                                  ? isLight ? "bg-red-500/5 border-red-500/20" : "bg-red-500/5 border-red-500/10"
-                                  : isLight ? "bg-amber-500/5 border-amber-500/20" : "bg-amber-500/5 border-amber-500/10"
-                              }`}>
-                                <div className="flex items-center justify-between flex-wrap gap-2">
-                                  <span className={`font-mono text-xs font-bold ${isLight ? "text-slate-900" : "text-slate-200"}`}>{item.header}</span>
-                                  <span className={`px-2 py-0.5 rounded font-mono text-[9px] font-bold border ${
-                                    item.present 
-                                      ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
-                                      : item.severity === "HIGH"
-                                      ? "bg-red-500/10 text-red-500 border-red-500/20"
-                                      : "bg-amber-500/10 text-amber-500 border-amber-500/20"
-                                  }`}>
-                                    {item.present ? "PASSED" : `MISSING (${item.severity})`}
-                                  </span>
-                                </div>
-                                <p className="text-[11px] text-slate-400 mt-1.5">{item.description}</p>
-                                {!item.present && (
-                                  <div className={`mt-3 p-3 rounded border ${isLight ? "bg-slate-100/70 border-slate-200" : "bg-slate-950/60 border-slate-850"}`}>
-                                    <span className="text-[9px] text-cyan-500 uppercase font-mono font-bold block">Actionable Remediation Guidance:</span>
-                                    <span className={`text-[10px] font-mono mt-1 block leading-normal ${isLight ? "text-slate-700 font-medium" : "text-slate-400"}`}>{item.remediation}</span>
+                            {vaptScanResult.findings.map((item: any, i: number) => {
+                              const isPresent = Boolean(item.present || item.status === "PRESENT" || item.status === "SECURE");
+                              return (
+                                <div key={i} className={`p-4 rounded-lg border leading-relaxed ${
+                                  isPresent 
+                                    ? isLight ? "bg-emerald-500/5 border-emerald-500/20" : "bg-emerald-500/5 border-emerald-500/10" 
+                                    : item.severity === "HIGH"
+                                    ? isLight ? "bg-red-500/5 border-red-500/20" : "bg-red-500/5 border-red-500/10"
+                                    : isLight ? "bg-amber-500/5 border-amber-500/20" : "bg-amber-500/5 border-amber-500/10"
+                                }`}>
+                                  <div className="flex items-center justify-between flex-wrap gap-2">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <span className={`font-mono text-xs font-bold ${isLight ? "text-slate-900" : "text-slate-200"}`}>{item.header}</span>
+                                      {item.value && (
+                                        <code className={`text-[10px] font-mono px-1.5 py-0.5 rounded border truncate max-w-md ${
+                                          isLight ? "bg-white border-slate-200 text-cyan-700" : "bg-slate-900 border-slate-800 text-cyan-400"
+                                        }`}>
+                                          {item.value}
+                                        </code>
+                                      )}
+                                    </div>
+                                    <span className={`px-2 py-0.5 rounded font-mono text-[9px] font-bold border ${
+                                      isPresent 
+                                        ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
+                                        : item.severity === "HIGH"
+                                        ? "bg-red-500/10 text-red-500 border-red-500/20"
+                                        : "bg-amber-500/10 text-amber-500 border-amber-500/20"
+                                    }`}>
+                                      {isPresent ? "PASSED" : `MISSING (${item.severity})`}
+                                    </span>
                                   </div>
-                                )}
-                              </div>
-                            ))}
+                                  <p className="text-[11px] text-slate-400 mt-1.5">{item.description || item.desc}</p>
+                                  {!isPresent && item.remediation && (
+                                    <div className={`mt-3 p-3 rounded border ${isLight ? "bg-slate-100/70 border-slate-200" : "bg-slate-950/60 border-slate-850"}`}>
+                                      <span className="text-[9px] text-cyan-500 uppercase font-mono font-bold block">Actionable Remediation Guidance:</span>
+                                      <span className={`text-[10px] font-mono mt-1 block leading-normal ${isLight ? "text-slate-700 font-medium" : "text-slate-400"}`}>{item.remediation}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
                           </div>
                         </div>
                       )}

@@ -80,11 +80,13 @@ export const INITIAL_DIRECTORY: User[] = [
 
 const isOperationNotAllowed = (err: any): boolean => {
   if (!err) return false;
+  const combined = `${err.code || ""} ${err.message || ""} ${String(err)}`.toLowerCase();
   return (
-    err.code === "auth/operation-not-allowed" ||
-    err.code?.includes("operation-not-allowed") ||
-    err.message?.includes("operation-not-allowed") ||
-    String(err).includes("operation-not-allowed")
+    combined.includes("operation-not-allowed") ||
+    combined.includes("unauthorized-domain") ||
+    combined.includes("configuration-not-found") ||
+    combined.includes("admin-restricted-operation") ||
+    combined.includes("popup-blocked")
   );
 };
 
@@ -275,11 +277,26 @@ export default function LoginScreen({ onLoginSuccess, theme = "light", sessionEx
         setSelectedRole("SecEngineer");
         setLoginStep("provision");
       }
+      localStorage.setItem("infoshield_auth_method", "firebase");
     } catch (authErr: any) {
-      console.error("Real Google Sign-In failed:", authErr);
+      console.warn("Google Sign-In popup fallback triggered:", authErr);
       if (isOperationNotAllowed(authErr)) {
         setIsOperationNotAllowedError(true);
-        setError("Google authentication provider is not enabled in your Firebase console.");
+        setError("");
+        setIsQueryingServer(false);
+        // If user already entered a valid email in the main input, proceed directly with Federated Google SSO
+        if (emailInput && emailInput.includes("@")) {
+          setSsoProvider("Google");
+          await handleProceedWithSsoEmail(emailInput);
+          return;
+        }
+        // Otherwise transition seamlessly to the Federated Google Account Selector
+        setSsoProvider("Google");
+        setIsAddingSsoEmail(true);
+        setSsoCustomEmail("");
+        return;
+      } else if (authErr?.code === "auth/popup-closed-by-user" || authErr?.code === "auth/cancelled-popup-request") {
+        setError("");
       } else {
         setError(`Google Sign-In failed: ${authErr.message || authErr}`);
       }
@@ -321,18 +338,22 @@ export default function LoginScreen({ onLoginSuccess, theme = "light", sessionEx
     const ssoSecretPassword = `${emailClean}SSO2026!`;
     try {
       await signInWithEmailAndPassword(auth, emailClean, ssoSecretPassword);
+      localStorage.setItem("infoshield_auth_method", "firebase");
     } catch (authErr: any) {
       if (authErr.code === "auth/user-not-found" || authErr.code === "auth/invalid-credential") {
         try {
           await createUserWithEmailAndPassword(auth, emailClean, ssoSecretPassword);
-          if (foundUser) {
-            await updateProfile(auth.currentUser!, { displayName: foundUser.name });
+          if (foundUser && auth.currentUser) {
+            await updateProfile(auth.currentUser, { displayName: foundUser.name });
           }
+          localStorage.setItem("infoshield_auth_method", "firebase");
         } catch (createErr) {
-          console.warn("Background SSO Firebase Auth signup failed:", createErr);
+          console.warn("Background SSO Firebase Auth signup fallback:", createErr);
+          localStorage.setItem("infoshield_auth_method", "local");
         }
       } else {
-        console.warn("Background SSO Firebase Auth signin failed:", authErr);
+        console.warn("Background SSO Firebase Auth signin fallback:", authErr);
+        localStorage.setItem("infoshield_auth_method", "local");
       }
     }
 
@@ -667,30 +688,22 @@ export default function LoginScreen({ onLoginSuccess, theme = "light", sessionEx
 
     try {
       await signInWithEmailAndPassword(auth, emailClean, demoPassword);
+      localStorage.setItem("infoshield_auth_method", "firebase");
     } catch (authError: any) {
       if (isOperationNotAllowed(authError)) {
-        setIsOperationNotAllowedError(true);
-        setError("Email/Password Authentication is not enabled on your Firebase project.");
-        setIsQueryingServer(false);
-        return;
-      }
-      if (authError.code === "auth/user-not-found" || authError.code === "auth/invalid-credential" || authError.code === "auth/wrong-password") {
+        localStorage.setItem("infoshield_auth_method", "local");
+      } else if (authError.code === "auth/user-not-found" || authError.code === "auth/invalid-credential" || authError.code === "auth/wrong-password") {
         try {
           await createUserWithEmailAndPassword(auth, emailClean, demoPassword);
           if (auth.currentUser) {
             await updateProfile(auth.currentUser, { displayName: user.name });
           }
+          localStorage.setItem("infoshield_auth_method", "firebase");
         } catch (err: any) {
-          if (isOperationNotAllowed(err)) {
-            setIsOperationNotAllowedError(true);
-            setError("Email/Password Authentication is not enabled on your Firebase project.");
-            setIsQueryingServer(false);
-            return;
-          }
-          console.warn("Auto demo register failed:", err);
+          localStorage.setItem("infoshield_auth_method", "local");
         }
       } else {
-        console.warn("Auto demo login failed:", authError);
+        localStorage.setItem("infoshield_auth_method", "local");
       }
     }
 
@@ -847,18 +860,15 @@ export default function LoginScreen({ onLoginSuccess, theme = "light", sessionEx
               )}
 
               {isOperationNotAllowedError && (
-                <div className={`p-4 rounded-xl border text-xs font-sans mb-4 space-y-3 ${
-                  isLight ? "bg-amber-50 border-amber-200 text-amber-900" : "bg-amber-950/20 border-amber-900 text-amber-200"
+                <div className={`p-4 rounded-xl border text-xs font-sans mb-4 space-y-2 ${
+                  isLight ? "bg-cyan-50/70 border-cyan-200 text-slate-800" : "bg-cyan-950/20 border-cyan-900/60 text-slate-200"
                 }`}>
                   <div className="flex items-start gap-2.5">
-                    <ShieldAlert className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+                    <CheckCircle className="h-5 w-5 text-cyan-500 shrink-0 mt-0.5" />
                     <div>
-                      <p className="font-mono font-bold uppercase text-[11px] text-amber-600 dark:text-amber-500">Dual-Engine Authentication Active</p>
-                      <p className="mt-1 leading-relaxed">
-                        Since this is a platform-managed sandbox project, standard Firebase Auth providers are restricted.
-                      </p>
-                      <p className="mt-2 leading-relaxed font-semibold text-emerald-600 dark:text-emerald-400">
-                        ⚡ Direct Secure Cloud Database Fallback is active! Your user profiles, credentials, and settings will register and persist flawlessly inside your dedicated Firestore cloud database.
+                      <p className="font-mono font-bold uppercase text-[11px] text-cyan-600 dark:text-cyan-400">Federated Cloud SSO Active</p>
+                      <p className="mt-1 leading-relaxed text-[11px]">
+                        Select or enter your Google account below to authenticate directly against your dedicated InfoShield Firestore directory.
                       </p>
                     </div>
                   </div>

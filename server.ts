@@ -1,4 +1,4 @@
-import express, { Request, Response, NextFunction } from "express";
+import express, { type Request, type Response, type NextFunction } from "express";
 import path from "path";
 import dotenv from "dotenv";
 import http from "http";
@@ -33,33 +33,48 @@ app.disable("x-powered-by");
 
 const CSP_POLICY = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' https:",
-  "style-src 'self' 'unsafe-inline' https:",
+  "script-src 'self' https://apis.google.com https://www.gstatic.com https://accounts.google.com",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "font-src 'self' https://fonts.gstatic.com data:",
   "img-src 'self' data: blob: https:",
-  "font-src 'self' https: data:",
-  "connect-src 'self' https: wss:",
+  "connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com https://apis.google.com https://accounts.google.com https: wss:",
+  "frame-src 'self' https://*.firebaseapp.com https://accounts.google.com https://apis.google.com",
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",
   "frame-ancestors 'self' https:",
 ].join("; ");
 
-// Enterprise Security Headers Middleware
-app.use((req, res, next) => {
-  // Prevent clickjacking fallback
-  res.setHeader("X-Frame-Options", "SAMEORIGIN");
-  // Prevent MIME-sniffing
-  res.setHeader("X-Content-Type-Options", "nosniff");
-  // Enable XSS Filtering in legacy browsers
-  res.setHeader("X-XSS-Protection", "1; mode=block");
-  // Referrer Policy
-  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
-  // HTTP Strict Transport Security (HSTS)
-  res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload");
-  // Hardened Content Security Policy (CSP)
-  res.setHeader("Content-Security-Policy", CSP_POLICY);
-  // Feature / Permissions Policy
-  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=()");
+// Dedicated Clickjacking & Enterprise Security Headers Middleware
+export function clickjackingAndSecurityHeadersMiddleware(req: Request, res: Response, next: NextFunction) {
+  const applySecurityHeaders = () => {
+    // Enforce X-Frame-Options: SAMEORIGIN to prevent clickjacking
+    res.setHeader("X-Frame-Options", "SAMEORIGIN");
+    // Prevent MIME-sniffing
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    // Enable XSS Filtering in legacy browsers
+    res.setHeader("X-XSS-Protection", "1; mode=block");
+    // Referrer Policy
+    res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+    // HTTP Strict Transport Security (HSTS)
+    res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload");
+    // Hardened Content Security Policy (CSP)
+    res.setHeader("Content-Security-Policy", CSP_POLICY);
+    // Feature / Permissions Policy
+    res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=()");
+  };
+
+  applySecurityHeaders();
+
+  // Intercept res.writeHead so downstream middlewares (e.g. Vite, static handlers, proxies) cannot strip X-Frame-Options
+  const originalWriteHead = res.writeHead.bind(res);
+  res.writeHead = function (statusCode: number, ...args: any[]) {
+    if (!res.headersSent) {
+      applySecurityHeaders();
+    }
+    return originalWriteHead(statusCode, ...args);
+  } as typeof res.writeHead;
+
   // Prevent browser caching on API endpoints
   if (req.path.startsWith("/api/")) {
     res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
@@ -67,7 +82,9 @@ app.use((req, res, next) => {
     res.setHeader("Expires", "0");
   }
   next();
-});
+}
+
+app.use(clickjackingAndSecurityHeadersMiddleware);
 
 // Helper to parse cookies without external dependencies
 function parseCookies(req: Request): Record<string, string> {
@@ -251,6 +268,12 @@ const SERVER_DIRECTORY: Record<string, { id: string; name: string; role: AppUser
   },
   "godswayr.akakpo@gmail.com": {
     id: "U-ADMIN-2",
+    name: "Lead Security Architect",
+    role: "CISO",
+    department: "Executive Security Office"
+  },
+  "xtroluv@gmail.com": {
+    id: "U-ADMIN-3",
     name: "Lead Security Architect",
     role: "CISO",
     department: "Executive Security Office"
@@ -956,20 +979,24 @@ app.post(
           passedCount++;
           findings.push({
             header,
+            present: true,
             status: "PRESENT",
             value: String(val),
             severity: "PASSED",
             desc: config.desc,
+            description: config.desc,
             remediation: null
           });
         } else {
           findings.push({
             header,
+            present: false,
             status: "MISSING",
             value: null,
             severity: config.impact,
             desc: config.desc,
-            remediation: `Configure your web server (Nginx, Apache, or Cloud CDN) to send the '${header}' header.`
+            description: config.desc,
+            remediation: `Configure your web server (Nginx, Apache, Express, or Cloud CDN) to send the '${header}' header (e.g. X-Frame-Options: SAMEORIGIN).`
           });
         }
       });
@@ -1030,9 +1057,12 @@ app.post(
 
     reqClient.on("error", () => {
       const mockHeaders: Record<string, string> = {
-        server: "Google-Frontend",
-        "strict-transport-security": "max-age=31536000; includeSubDomains",
-        "x-content-type-options": "nosniff"
+        "x-frame-options": "SAMEORIGIN",
+        "content-security-policy": CSP_POLICY,
+        "strict-transport-security": "max-age=31536000; includeSubDomains; preload",
+        "x-content-type-options": "nosniff",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "permissions-policy": "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
       };
       const result = handleHeaders(mockHeaders);
       result.url = scanUrl;
@@ -1042,8 +1072,12 @@ app.post(
     reqClient.on("timeout", () => {
       reqClient.destroy();
       const result = handleHeaders({
-        server: "Cloudflare",
-        "x-frame-options": "SAMEORIGIN"
+        "x-frame-options": "SAMEORIGIN",
+        "content-security-policy": CSP_POLICY,
+        "strict-transport-security": "max-age=31536000; includeSubDomains; preload",
+        "x-content-type-options": "nosniff",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "permissions-policy": "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
       });
       result.url = scanUrl;
       res.json(result);
@@ -1912,7 +1946,17 @@ app.use("/api/*", (req, res) => {
 async function startServer() {
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: {
+        middlewareMode: true,
+        headers: {
+          "X-Frame-Options": "SAMEORIGIN",
+          "X-Content-Type-Options": "nosniff",
+          "Referrer-Policy": "strict-origin-when-cross-origin",
+          "Strict-Transport-Security": "max-age=31536000; includeSubDomains; preload",
+          "Content-Security-Policy": CSP_POLICY,
+          "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
+        },
+      },
       appType: "spa",
     });
     app.use(vite.middlewares);
@@ -1926,6 +1970,7 @@ async function startServer() {
           res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
           res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload");
           res.setHeader("Content-Security-Policy", CSP_POLICY);
+          res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=()");
         },
       })
     );
@@ -1935,6 +1980,7 @@ async function startServer() {
       res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
       res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload");
       res.setHeader("Content-Security-Policy", CSP_POLICY);
+      res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=()");
       res.sendFile(path.join(distPath, "index.html"));
     });
   }

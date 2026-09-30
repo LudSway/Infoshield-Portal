@@ -60,7 +60,10 @@ export default function Sidebar({
   onTriggerOnboardingStory
 }: SidebarProps) {
   const isLight = theme === "light";
-  const isGodwayr = currentUser?.email?.trim().toLowerCase() === "godwayr.akakpo@gmail.com" || currentUser?.email?.trim().toLowerCase() === "godswayr.akakpo@gmail.com";
+  const isGodwayr =
+    currentUser?.email?.trim().toLowerCase() === "godwayr.akakpo@gmail.com" ||
+    currentUser?.email?.trim().toLowerCase() === "godswayr.akakpo@gmail.com" ||
+    currentUser?.email?.trim().toLowerCase() === "xtroluv@gmail.com";
 
   // Definition of the 5 high-level sidebar sections (including Portal Settings)
   const groups = [
